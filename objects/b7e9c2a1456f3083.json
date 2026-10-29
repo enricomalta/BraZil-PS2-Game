@@ -1,0 +1,1 @@
+{ "id": "b7e9c2a1456f3083", "name": "zombie-03", "type": "model", "position": [-13, 0, 22], "rotation": [0, 0, 0], "scale": [1, 1, 1], "color": [1, 1, 1], "physics": false, "collision": "none", "model": "res/models/zombie.obj" }
