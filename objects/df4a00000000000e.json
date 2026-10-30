@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000e", "name": "backpack-pickup", "type": "box", "position": [5, 0.35, 4], "rotation": [0, 0, 0], "scale": [0.7, 0.7, 0.5], "color": [0.24, 0.36, 0.24], "physics": false, "usable": true, "collision": "none" }

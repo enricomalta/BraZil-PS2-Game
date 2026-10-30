@@ -99,6 +99,8 @@ void Zombie::reset(int objectIndex, float startX, float startZ) {
   patrolX_ = startX;
   patrolZ_ = startZ;
   patrolTimer_ = 0.6F + static_cast<float>(objectIndex % 4) * 0.35F;
+  searchTimer_ = 0.0F;
+  staggerTimer_ = 0.0F;
   lastNoiseSequence_ = latestNoise.sequence;
   patrolIndex_ = 0;
   patrolMoving_ = false;
@@ -153,7 +155,13 @@ void initializeSurvivalZombies(ScriptContext& ctx) {
 bool Zombie::damage(float amount) {
   if (!alive() || !(amount > 0.0F)) return false;
   health_ = amount >= health_ ? 0.0F : health_ - amount;
-  if (health_ <= 0.0F) state_ = ZombieState::Dead;
+  if (health_ <= 0.0F) {
+    state_ = ZombieState::Dead;
+  } else {
+    state_ = ZombieState::Stagger;
+    staggerTimer_ = 0.3F;
+    patrolMoving_ = false;
+  }
   return true;
 }
 
@@ -257,23 +265,34 @@ bool Zombie::update(RuntimeObject& object, const PlayerPosition& player,
       playerDistanceSquared <= perceptionSquared &&
       canSeePlayer(object, player, objectIndex_, objects, objectCount);
 
+  if (state_ == ZombieState::Stagger) {
+    staggerTimer_ -= deltaTime;
+    if (staggerTimer_ > 0.0F) return false;
+    state_ = seesPlayer ? ZombieState::Chase : ZombieState::Search;
+    searchTimer_ = seesPlayer ? 0.0F : 3.0F;
+  }
+
   if (noise.sequence != lastNoiseSequence_) {
     lastNoiseSequence_ = noise.sequence;
     if (noise.radius > 0.0F &&
         distanceSquared(x, z, noise.x, noise.z) <= noise.radius * noise.radius) {
       investigateX_ = noise.x;
       investigateZ_ = noise.z;
-      if (playerDistanceSquared > perceptionSquared)
-        if (state_ != ZombieState::Chase && state_ != ZombieState::Attack)
-          state_ = ZombieState::Investigate;
+      if (!seesPlayer && state_ != ZombieState::Chase &&
+          state_ != ZombieState::Attack) {
+        state_ = ZombieState::Investigate;
+      }
     }
   }
 
   if (seesPlayer) {
+    investigateX_ = player.x;
+    investigateZ_ = player.z;
     if (state_ != ZombieState::Attack) state_ = ZombieState::Chase;
     patrolMoving_ = false;
   } else if (state_ == ZombieState::Chase || state_ == ZombieState::Attack) {
-    state_ = ZombieState::Idle;
+    state_ = ZombieState::Search;
+    searchTimer_ = 4.0F;
     patrolMoving_ = false;
     attackCooldown_ = 0.0F;
   }
@@ -284,9 +303,28 @@ bool Zombie::update(RuntimeObject& object, const PlayerPosition& player,
       break;
     case ZombieState::Investigate:
       if (moveToward(object, investigateX_, investigateZ_, kInvestigateSpeed,
-                     objects, objectCount, deltaTime))
-        state_ = ZombieState::Idle;
+                     objects, objectCount, deltaTime)) {
+        state_ = ZombieState::Search;
+        searchTimer_ = 3.0F;
+      }
       break;
+    case ZombieState::Search: {
+      static const float offsets[4][2] = {
+          {-1.5F, 0.0F}, {0.0F, 1.5F}, {1.5F, 0.0F}, {0.0F, -1.5F}};
+      if (searchTimer_ > 0.0F)
+        searchTimer_ = deltaTime >= searchTimer_ ? 0.0F
+                                                 : searchTimer_ - deltaTime;
+      if (searchTimer_ <= 0.0F) {
+        state_ = ZombieState::Idle;
+        break;
+      }
+      const float targetX = investigateX_ + offsets[patrolIndex_][0];
+      const float targetZ = investigateZ_ + offsets[patrolIndex_][1];
+      if (moveToward(object, targetX, targetZ, kPatrolSpeed, objects,
+                     objectCount, deltaTime))
+        patrolIndex_ = static_cast<unsigned char>((patrolIndex_ + 1) % 4);
+      break;
+    }
     case ZombieState::Chase:
       if (playerDistanceSquared <= attackSquared) {
         state_ = ZombieState::Attack;
@@ -305,6 +343,8 @@ bool Zombie::update(RuntimeObject& object, const PlayerPosition& player,
         attackCooldown_ = kAttackCooldown;
         return true;
       }
+      break;
+    case ZombieState::Stagger:
       break;
     case ZombieState::Dead:
       break;
@@ -360,13 +400,20 @@ class SurvivalZombieScript : public Script {
         playSurvivalSound(ctx, SurvivalSound::ZombieAttack);
       }
 
-      if (attacked && survivalPlayer().damage(kAttackDamage)) {
+      if (attacked) {
+        const bool headshot = (++attackCount_ % 3U) == 0U;
+        if (!survivalPlayer().damage(kAttackDamage, headshot)) continue;
+        survivalPlayer().startBleeding();
         playSurvivalSound(ctx, SurvivalSound::ZombieAttack);
         TYRA_LOG("Zombie: enemy ", i + 1, " attacks; player HP ",
-                 survivalPlayer().health());
+                 survivalPlayer().health(),
+                 headshot ? " (head hit)" : " (bleeding)");
       }
     }
   }
+
+ private:
+  unsigned int attackCount_ = 0;
 };
 
 }  // namespace Deep_forest

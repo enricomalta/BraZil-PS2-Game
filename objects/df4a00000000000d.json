@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000d", "name": "medkit-pickup", "type": "box", "position": [4, 0.25, 4], "rotation": [0, 0, 0], "scale": [0.6, 0.35, 0.5], "color": [0.85, 0.8, 0.72], "physics": false, "usable": true, "collision": "none" }

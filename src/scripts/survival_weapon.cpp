@@ -1,8 +1,10 @@
 #include <math.h>
 #include <string.h>
 
+#include "gameplay/inventory.hpp"
 #include "gameplay/weapon.hpp"
 #include "model_data.gen.hpp"
+#include "scene_data.hpp"
 #include "scripts/script.hpp"
 
 namespace Deep_forest {
@@ -11,6 +13,7 @@ namespace {
 constexpr float kPi = 3.14159265358979323846F;
 
 int findWeaponObject(const ScriptContext& ctx) {
+  if (ctx.scene < 0 || ctx.scene >= SCENE_COUNT) return -1;
   int weaponModel = -1;
   for (int i = 0; i < MODEL_COUNT; ++i) {
     if (strcmp(MODEL_SOURCES[i], "res/models/weapon.obj") == 0) {
@@ -20,7 +23,11 @@ int findWeaponObject(const ScriptContext& ctx) {
   }
   if (weaponModel < 0) return -1;
 
-  for (int i = 0; i < ctx.objectCount; ++i) {
+  const int sceneObjectCount =
+      ctx.objectCount < SCENE_OBJECT_COUNTS[ctx.scene]
+          ? ctx.objectCount
+          : SCENE_OBJECT_COUNTS[ctx.scene];
+  for (int i = 0; i < sceneObjectCount; ++i) {
     const RuntimeObject& object = ctx.objects[i];
     if (object.active && object.data.type == 5 &&
         object.data.model == weaponModel)
@@ -52,6 +59,21 @@ class SurvivalWeaponScript : public Script {
     if (!object.active) return;
 
     const Weapon& weapon = survivalWeapon();
+    if (!weapon.owned()) {
+      object.visible = true;
+      const SceneObjectData& pickup = SCENE_OBJECTS[objectIndex_];
+      for (int axis = 0; axis < 3; ++axis) {
+        object.data.position[axis] = pickup.position[axis];
+        object.data.rotation[axis] = pickup.rotation[axis];
+      }
+      if (!object.onMatrixPath) object.dirty = true;
+      return;
+    }
+    if (!weapon.equipped()) {
+      object.visible = false;
+      return;
+    }
+    object.visible = true;
     if (weapon.shotSequence() != lastShotSequence_) {
       lastShotSequence_ = weapon.shotSequence();
       recoil_ = 0.12F;

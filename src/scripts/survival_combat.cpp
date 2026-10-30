@@ -2,9 +2,11 @@
 #include <string.h>
 
 #include "gameplay/player.hpp"
+#include "gameplay/inventory.hpp"
 #include "gameplay/survival_audio.hpp"
 #include "gameplay/weapon.hpp"
 #include "gameplay/zombie.hpp"
+#include "hud_data.gen.hpp"
 #include "input_map.gen.hpp"
 #include "model_data.gen.hpp"
 #include "scripts/script.hpp"
@@ -92,7 +94,8 @@ class SurvivalCombatScript : public Script {
       ctx.textRequest[1] = hitDistance >= 0.0F ? 1 : 0;
     }
 
-    const bool fireHeld = inputPressed(ctx.engine->pad, IA_FIRE);
+    const bool fireHeld =
+        !survivalInventoryOpen() && inputPressed(ctx.engine->pad, IA_FIRE);
     if (fireHeld) {
       fire(ctx, aimedZombie, hitDistance);
     } else {
@@ -103,13 +106,26 @@ class SurvivalCombatScript : public Script {
 
  private:
   void updateHud(ScriptContext& ctx) const {
+    const bool showWeaponHud = weapon_.equipped();
+    if (ctx.textRequest && ctx.textCount > 4) {
+      ctx.textRequest[3] = showWeaponHud ? 1 : 0;
+      ctx.textRequest[4] = showWeaponHud ? 1 : 0;
+    }
+    if (ctx.hudElemRequest &&
+        ctx.hudElemCount >= HUD_ELEM_BAR0 + 3) {
+      ctx.hudElemRequest[HUD_ELEM_BAR0 + 1] = showWeaponHud ? 1 : 0;
+      ctx.hudElemRequest[HUD_ELEM_BAR0 + 2] = showWeaponHud ? 1 : 0;
+    }
     if (!ctx.hudBarValue || !ctx.hudBarSet || ctx.hudBarCount < 3) return;
     ctx.hudBarValue[0] = survivalPlayer().health();
-    ctx.hudBarValue[1] = static_cast<float>(weapon_.magazineAmmo());
-    ctx.hudBarValue[2] = static_cast<float>(weapon_.reserveAmmo());
     ctx.hudBarSet[0] = 1;
-    ctx.hudBarSet[1] = 2;
-    ctx.hudBarSet[2] = 2;
+    if (showWeaponHud) {
+      ctx.hudBarValue[1] = static_cast<float>(weapon_.magazineAmmo());
+      ctx.hudBarValue[2] =
+          static_cast<float>(weapon_.reserveAmmo(survivalInventory()));
+      ctx.hudBarSet[1] = 2;
+      ctx.hudBarSet[2] = 2;
+    }
   }
 
   void resetScene(ScriptContext& ctx) {
@@ -123,6 +139,13 @@ class SurvivalCombatScript : public Script {
   void fire(ScriptContext& ctx, int zombieSlot, float hitDistance) {
     const ShotResult result = weapon_.fire();
     if (result == ShotResult::CoolingDown) return;
+    if (result == ShotResult::NoWeapon) {
+      if (!emptyMessageLogged_) {
+        TYRA_LOG("Combat: pick up and equip a pistol before firing");
+        emptyMessageLogged_ = true;
+      }
+      return;
+    }
     if (result == ShotResult::Empty) {
       if (!emptyMessageLogged_) {
         playSurvivalSound(ctx, SurvivalSound::EmptyShot);
@@ -151,7 +174,8 @@ class SurvivalCombatScript : public Script {
       padVibrate(ctx, 0.3F, true, 0.1F);
       TYRA_LOG("Combat: HIT zombie ", zombieSlot + 1, " at ", hitDistance,
                " units; HP ", zombie.health(), " ammo ",
-               weapon_.magazineAmmo(), "/", weapon_.reserveAmmo());
+               weapon_.magazineAmmo(), "/",
+               weapon_.reserveAmmo(survivalInventory()));
 
       if (!zombie.alive()) {
         object.visible = false;
@@ -163,7 +187,8 @@ class SurvivalCombatScript : public Script {
     }
 
     TYRA_LOG("Combat: miss; max range ", kShotRange, " units; ammo ",
-             weapon_.magazineAmmo(), "/", weapon_.reserveAmmo());
+             weapon_.magazineAmmo(), "/",
+             weapon_.reserveAmmo(survivalInventory()));
   }
 
   int aimedZombieSlot(const ScriptContext& ctx, float* hitDistance) const {
@@ -226,16 +251,15 @@ class SurvivalCombatScript : public Script {
   }
 
   void reload(ScriptContext& ctx) {
-    const ReloadResult result = weapon_.reload();
+    const ReloadResult result =
+        weapon_.reload(survivalInventory(), survivalInventorySelection());
     if (result == ReloadResult::Reloaded) {
       playSurvivalSound(ctx, SurvivalSound::Reload);
       TYRA_LOG("Combat: reloaded ", weapon_.magazineAmmo(), "/",
-               weapon_.reserveAmmo());
+               weapon_.magazineCapacity());
       padVibrate(ctx, 0.12F, false, 0.08F);
-    } else if (result == ReloadResult::MagazineFull) {
-      TYRA_LOG("Combat: magazine already full");
     } else {
-      TYRA_LOG("Combat: no reserve ammo");
+      TYRA_LOG("Combat: no loaded magazine in inventory");
     }
   }
 

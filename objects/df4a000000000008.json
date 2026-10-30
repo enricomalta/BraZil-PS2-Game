@@ -1,0 +1,1 @@
+{ "id": "df4a000000000008", "name": "magazine-pickup-a", "type": "box", "position": [3.3, 0.2, 2.2], "rotation": [0, 18, 0], "scale": [0.35, 0.22, 0.55], "color": [0.13, 0.13, 0.16], "physics": false, "usable": true, "collision": "none" }

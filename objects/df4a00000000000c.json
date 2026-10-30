@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000c", "name": "water-pickup", "type": "cylinder", "position": [3.2, 0.35, 4], "rotation": [0, 0, 0], "scale": [0.28, 0.55, 0.28], "color": [0.2, 0.55, 0.9], "physics": false, "usable": true, "collision": "none" }

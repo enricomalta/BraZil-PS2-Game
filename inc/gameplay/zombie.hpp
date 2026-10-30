@@ -18,8 +18,10 @@ struct GameplayNoise {
 enum class ZombieState {
   Idle,
   Investigate,
+  Search,
   Chase,
   Attack,
+  Stagger,
   Dead
 };
 
@@ -55,6 +57,8 @@ class Zombie {
   float patrolX_ = 0.0F;
   float patrolZ_ = 0.0F;
   float patrolTimer_ = 0.0F;
+  float searchTimer_ = 0.0F;
+  float staggerTimer_ = 0.0F;
   unsigned int lastNoiseSequence_ = 0;
   unsigned char patrolIndex_ = 0;
   bool patrolMoving_ = false;

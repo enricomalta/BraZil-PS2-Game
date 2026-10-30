@@ -1,28 +1,48 @@
 #pragma once
 
+#include "gameplay/inventory.hpp"
+
 namespace Deep_forest {
 
 enum class ShotResult {
   Fired,
   Empty,
-  CoolingDown
+  CoolingDown,
+  NoWeapon
 };
 
 enum class ReloadResult {
   Reloaded,
-  MagazineFull,
-  ReserveEmpty
+  NoWeapon,
+  NoLoadedMagazine
 };
 
 class Weapon {
  public:
   void reset() {
-    magazineAmmo_ = 8;
-    reserveAmmo_ = 24;
+    owned_ = false;
+    equipped_ = false;
+    magazine_ = Item();
     cooldown_ = 0.0F;
     shotSequence_ = 0;
     reloadSequence_ = 0;
   }
+
+  void acquire() {
+    owned_ = true;
+    equipped_ = true;
+  }
+  void toggleEquipped() {
+    if (owned_) equipped_ = !equipped_;
+  }
+  // Dropping the pistol hands it back to the world; only while holstered.
+  bool release() {
+    if (!owned_ || equipped_) return false;
+    owned_ = false;
+    return true;
+  }
+  bool owned() const { return owned_; }
+  bool equipped() const { return equipped_; }
 
   void update(float deltaTime) {
     if (deltaTime <= 0.0F || cooldown_ <= 0.0F) return;
@@ -30,38 +50,54 @@ class Weapon {
   }
 
   ShotResult fire() {
+    if (!equipped_) return ShotResult::NoWeapon;
     if (cooldown_ > 0.0F) return ShotResult::CoolingDown;
-    if (magazineAmmo_ <= 0) return ShotResult::Empty;
+    if (magazine_.id != kItemPistolMagazine || magazine_.ammoCount <= 0)
+      return ShotResult::Empty;
 
-    --magazineAmmo_;
+    --magazine_.ammoCount;
     cooldown_ = 0.35F;
     ++shotSequence_;
     return ShotResult::Fired;
   }
 
-  ReloadResult reload() {
-    if (magazineAmmo_ >= 8) return ReloadResult::MagazineFull;
-    if (reserveAmmo_ <= 0) return ReloadResult::ReserveEmpty;
+  ReloadResult reload(Inventory& inventory, int preferredSlot = -1) {
+    if (!equipped_) return ReloadResult::NoWeapon;
+    int slotIndex = preferredSlot;
+    const Item* candidate = inventory.slot(slotIndex);
+    if (!candidate || candidate->id != kItemPistolMagazine ||
+        candidate->ammoCount <= 0) {
+      slotIndex = inventory.firstLoadedMagazineSlot();
+      candidate = inventory.slot(slotIndex);
+    }
+    if (!candidate || candidate->id != kItemPistolMagazine ||
+        candidate->ammoCount <= 0)
+      return ReloadResult::NoLoadedMagazine;
 
-    int transfer = 8 - magazineAmmo_;
-    if (transfer > reserveAmmo_) transfer = reserveAmmo_;
-    magazineAmmo_ += transfer;
-    reserveAmmo_ -= transfer;
+    Item* selected = inventory.mutableSlot(slotIndex);
+    if (!selected) return ReloadResult::NoLoadedMagazine;
+    const Item previous = magazine_;
+    magazine_ = *selected;
+    *selected = previous;
     ++reloadSequence_;
     return ReloadResult::Reloaded;
   }
 
-  int magazineAmmo() const { return magazineAmmo_; }
-  int reserveAmmo() const { return reserveAmmo_; }
+  int magazineAmmo() const { return magazine_.ammoCount; }
+  int magazineCapacity() const { return magazine_.ammoCapacity; }
+  int reserveAmmo(const Inventory& inventory) const {
+    return inventory.count(kItemAmmo9mm);
+  }
   unsigned int shotSequence() const { return shotSequence_; }
   unsigned int reloadSequence() const { return reloadSequence_; }
 
  private:
-  int magazineAmmo_ = 8;
-  int reserveAmmo_ = 24;
+  Item magazine_;
   float cooldown_ = 0.0F;
   unsigned int shotSequence_ = 0;
   unsigned int reloadSequence_ = 0;
+  bool owned_ = false;
+  bool equipped_ = false;
 };
 
 Weapon& survivalWeapon();

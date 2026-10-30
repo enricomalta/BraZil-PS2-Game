@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000a", "name": "ammo-pickup", "type": "box", "position": [4.5, 0.25, 2.2], "rotation": [0, 0, 0], "scale": [0.55, 0.32, 0.45], "color": [0.78, 0.64, 0.22], "physics": false, "usable": true, "collision": "none" }

@@ -1,0 +1,1 @@
+{ "id": "df4a000000000010", "name": "helmet-pickup", "type": "sphere", "position": [6.6, 0.45, 4], "rotation": [0, 0, 0], "scale": [0.42, 0.42, 0.42], "color": [0.32, 0.38, 0.48], "physics": false, "usable": true, "collision": "none" }

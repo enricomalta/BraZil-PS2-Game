@@ -1,1 +1,1 @@
-{ "id": "b7e9c2a1456f3081", "name": "provisional-weapon", "type": "model", "position": [0, 0, 0], "rotation": [0, 0, 0], "scale": [0.8, 0.8, 0.8], "color": [1, 1, 1], "physics": false, "collision": "none", "castShadow": false, "model": "res/models/weapon.obj" }
+{ "id": "b7e9c2a1456f3081", "name": "pistol-pickup", "type": "model", "position": [2, 0.15, 2.8], "rotation": [0, 35, 0], "scale": [0.8, 0.8, 0.8], "color": [1, 1, 1], "physics": false, "usable": true, "collision": "none", "castShadow": false, "model": "res/models/weapon.obj" }

@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000f", "name": "vest-pickup", "type": "box", "position": [5.8, 0.35, 4], "rotation": [0, 0, 0], "scale": [0.7, 0.6, 0.4], "color": [0.3, 0.32, 0.36], "physics": false, "usable": true, "collision": "none" }

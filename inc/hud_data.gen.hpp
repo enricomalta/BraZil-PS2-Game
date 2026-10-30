@@ -14,9 +14,9 @@ struct HudImageData {
   int visible;       // 1 = shown when the game starts
 };
 
-inline constexpr int HUD_COUNT = 0;
+inline constexpr int HUD_COUNT = 1;
 inline const HudImageData HUD_IMAGES[HUD_COUNT > 0 ? HUD_COUNT : 1] = {
-    {"", 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
+    {"hud/seq-black.png", 0.5F, 0.5F, 1024.0F, 1024.0F, 0, 1.0F, 4.0F, 0, 0.25F, 0},  // death-screen
 };
 
 // Screen-stack positions of the full-screen effects (Tools > UI
@@ -72,15 +72,19 @@ struct HudTextData {
   float transSec;
 };
 
-inline constexpr int HUD_TEXT_COUNT = 7;
+inline constexpr int HUD_TEXT_COUNT = 11;
 inline const HudTextData HUD_TEXTS[HUD_TEXT_COUNT > 0 ? HUD_TEXT_COUNT : 1] = {
     {"hud/text-aim-reticle.png", 0.5F, 0.5F, 16, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // aim-reticle
     {"hud/text-aim-on-zombie.png", 0.5F, 0.5F, 16, 32, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // aim-on-zombie
     {"hud/text-health-label.png", 0.1F, 0.08F, 32, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // health-label
     {"hud/text-magazine-label.png", 0.57F, 0.08F, 64, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // magazine-label
-    {"hud/text-reserve-label.png", 0.57F, 0.135F, 64, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // reserve-label
-    {"hud/text-game-over.png", 0.5F, 0.42F, 256, 32, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // game-over
-    {"hud/text-restart-prompt.png", 0.5F, 0.49F, 256, 32, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // restart-prompt
+    {"hud/text-reserve-label.png", 0.57F, 0.135F, 128, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // reserve-label
+    {"hud/text-game-over.png", 0.5F, 0.42F, 256, 64, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // game-over
+    {"hud/text-restart-prompt.png", 0.5F, 0.52F, 256, 32, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // restart-prompt
+    {"hud/text-hunger-label.png", 0.1F, 0.14F, 32, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // hunger-label
+    {"hud/text-thirst-label.png", 0.1F, 0.19F, 32, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // thirst-label
+    {"hud/text-stamina-label.png", 0.1F, 0.24F, 64, 32, 1, 0, 1.0F, 4.0F, 0, 0.25F},  // stamina-label
+    {"hud/text-bleeding-label.png", 0.1F, 0.29F, 64, 32, 0, 0, 1.0F, 4.0F, 0, 0.25F},  // bleeding-label
 };
 
 struct HudBarData {
@@ -106,11 +110,14 @@ struct HudBarData {
   int visible;           // 1 = shown when the game starts
 };
 
-inline constexpr int HUD_BAR_COUNT = 3;
+inline constexpr int HUD_BAR_COUNT = 6;
 inline const HudBarData HUD_BARS[HUD_BAR_COUNT > 0 ? HUD_BAR_COUNT : 1] = {
     {0, 0.31F, 0.08F, 180.0F, 12.0F, {15.36F, 6.4F, 6.4F}, {32.0F, 104.96F, 38.4F}, {128.0F, 96.0F, 19.2F}, 1, 0, 0.12F, 0.25F, 2, 0.0F, -1, 0.0F, 100.0F, 100.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // player-health
     {1, 0.82F, 0.08F, 92.0F, 12.0F, {10.24F, 10.24F, 10.24F}, {128.0F, 99.84F, 25.6F}, {128.0F, 99.84F, 25.6F}, 0, 0, 0.0F, 0.0F, 8, 3.0F, -1, 0.0F, 8.0F, 8.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // magazine-ammo
-    {1, 0.82F, 0.135F, 92.0F, 8.0F, {10.24F, 10.24F, 10.24F}, {92.16F, 99.84F, 108.8F}, {92.16F, 99.84F, 108.8F}, 0, 0, 0.0F, 0.0F, 16, 1.0F, -1, 0.0F, 24.0F, 24.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // reserve-ammo
+    {1, 0.82F, 0.135F, 92.0F, 8.0F, {10.24F, 10.24F, 10.24F}, {92.16F, 99.84F, 108.8F}, {92.16F, 99.84F, 108.8F}, 0, 0, 0.0F, 0.0F, 16, 1.0F, -1, 0.0F, 48.0F, 48.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // reserve-ammo
+    {0, 0.31F, 0.14F, 180.0F, 8.0F, {15.36F, 12.8F, 5.12F}, {117.76F, 87.04F, 25.6F}, {117.76F, 87.04F, 25.6F}, 0, 0, 0.18F, 0.2F, 2, 0.0F, -1, 0.0F, 100.0F, 100.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // player-hunger
+    {0, 0.31F, 0.19F, 180.0F, 8.0F, {5.12F, 12.8F, 19.2F}, {25.6F, 74.24F, 117.76F}, {25.6F, 74.24F, 117.76F}, 0, 0, 0.18F, 0.2F, 2, 0.0F, -1, 0.0F, 100.0F, 100.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // player-thirst
+    {0, 0.31F, 0.24F, 180.0F, 8.0F, {5.12F, 15.36F, 6.4F}, {38.4F, 104.96F, 44.8F}, {38.4F, 104.96F, 44.8F}, 0, 0, 0.08F, 0.15F, 2, 0.0F, -1, 0.0F, 100.0F, 100.0F, "", "", 64.0F, 64.0F, 0, 1.0F, 4.0F, 0, 0.25F, 1},  // player-stamina
 };
 
 // Every HUD element in one index space (the Set HUD Element Visible /

@@ -1,0 +1,1 @@
+{ "id": "df4a000000000012", "name": "supply-crate-b", "type": "box", "position": [-4, 0.45, 4.5], "rotation": [0, -18, 0], "scale": [0.9, 0.9, 0.8], "color": [0.35, 0.23, 0.12], "physics": false, "usable": true, "collision": "none" }

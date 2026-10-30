@@ -1,0 +1,1 @@
+{ "id": "df4a00000000000b", "name": "food-pickup", "type": "box", "position": [2.4, 0.25, 4], "rotation": [0, 0, 0], "scale": [0.5, 0.4, 0.5], "color": [0.66, 0.34, 0.16], "physics": false, "usable": true, "collision": "none" }
