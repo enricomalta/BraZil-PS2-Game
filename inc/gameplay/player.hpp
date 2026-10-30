@@ -19,6 +19,8 @@ class Player {
   void startBleeding();
   void stopBleeding();
   void setArmor(bool vest, bool helmet);
+  void setLoad(float factor) { load_ = factor; }
+  float load() const { return load_; }
   void reset();
 
   const PlayerPosition& position() const { return position_; }
@@ -41,6 +43,7 @@ class Player {
   float thirst_ = 100.0F;
   float stamina_ = 100.0F;
   float bleedTimer_ = 0.0F;
+  float load_ = 0.0F;
   bool bleeding_ = false;
   bool vest_ = false;
   bool helmet_ = false;

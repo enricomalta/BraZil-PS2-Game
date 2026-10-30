@@ -36,6 +36,7 @@ class SurvivalPlayerScript : public Script {
     const bool sprinting =
         ctx.engine && inputPressed(ctx.engine->pad, IA_SPRINT) &&
         moveX * moveX + moveZ * moveZ > 0.000001F;
+    playerState.setLoad(survivalInventory().loadFactor());
     playerState.updateSurvival(g_frameDt, sprinting);
     playerState.setArmor(survivalInventory().vestEquipped(),
                          survivalInventory().helmetEquipped());
@@ -50,7 +51,8 @@ class SurvivalPlayerScript : public Script {
     if (ctx.playerSpeeds[0]) {
       if (baseSprintSpeed < 0.0F) baseSprintSpeed = ctx.playerSpeeds[0][2];
       const float staminaFactor =
-          0.55F + 0.45F * playerState.stamina() / 100.0F;
+          (0.55F + 0.45F * playerState.stamina() / 100.0F) *
+          (1.0F - 0.2F * playerState.load());
       ctx.playerSpeeds[0][2] =
           playerState.stamina() > 0.0F
               ? baseSprintSpeed * staminaFactor
@@ -159,13 +161,13 @@ void Player::updateSurvival(float deltaTime, bool sprinting) {
   if (thirst_ < 0.0F) thirst_ = 0.0F;
 
   if (sprinting && stamina_ > 0.0F) {
-    float drain = 12.0F;
+    float drain = 12.0F * (1.0F + 0.5F * load_);
     if (hunger_ < 25.0F) drain *= 1.5F;
     if (thirst_ < 25.0F) drain *= 1.75F;
     stamina_ -= drain * deltaTime;
     if (stamina_ < 0.0F) stamina_ = 0.0F;
   } else {
-    float recovery = 18.0F;
+    float recovery = 18.0F * (1.0F - 0.3F * load_);
     if (hunger_ < 50.0F) recovery *= 0.7F;
     if (thirst_ < 50.0F) recovery *= 0.55F;
     stamina_ += recovery * deltaTime;

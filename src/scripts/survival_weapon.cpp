@@ -60,6 +60,8 @@ class SurvivalWeaponScript : public Script {
 
     const Weapon& weapon = survivalWeapon();
     if (!weapon.owned()) {
+      // A dropped pistol stays where the inventory script put it.
+      if (weapon.dropped()) return;
       object.visible = true;
       const SceneObjectData& pickup = SCENE_OBJECTS[objectIndex_];
       for (int axis = 0; axis < 3; ++axis) {

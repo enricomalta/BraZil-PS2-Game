@@ -62,48 +62,234 @@ void drawSurvivalInventoryHud(Engine* engine) {
     return;
   }
 
-  const float top = screen.getHeight() * 0.18F;
-  const float lineHeight = 17.0F;
-  char line[64];
+  const float top = screen.getHeight() * 0.10F;
+  const float lineHeight = 16.0F;
+  const float smallFont = 9.0F;
+  const Inventory& inventory = survivalInventory();
+  const int selection = survivalInventorySelection();
+  const InventoryGrab& grab = survivalInventoryGrab();
 
-  drawInventoryLine(engine, "INVENTARIO", left, top, 16.0F);
-  for (int i = 0; i < survivalInventory().slotCount(); ++i) {
-    const Item* item = survivalInventory().slot(i);
-    const char selected = i == survivalInventorySelection() ? '>' : ' ';
-    if (!item || item->id == 0) {
-      snprintf(line, sizeof(line), "%c%02d - VAZIO", selected, i + 1);
-    } else if (item->id == kItemPistolMagazine) {
-      snprintf(line, sizeof(line), "%c%02d %s %d/%d", selected, i + 1,
-               item->name, item->ammoCount, item->ammoCapacity);
-    } else {
-      const char* status = "";
-      if (item->id == kItemPistol && survivalWeapon().equipped())
-        status = " EQUIPADA";
-      else if (item->id == kItemBackpack &&
-               survivalInventory().backpackEquipped())
-        status = " EQUIPADA";
-      else if (item->id == kItemVest && survivalInventory().vestEquipped())
-        status = " EQUIPADO";
-      else if (item->id == kItemHelmet &&
-               survivalInventory().helmetEquipped())
-        status = " EQUIPADO";
-      snprintf(line, sizeof(line), "%c%02d %s x%d%s", selected, i + 1,
-               item->name ? item->name : "ITEM", item->quantity, status);
+  static Sprite quad;
+  static bool quadReady = false;
+  if (!quadReady) {
+    quad.mode = SpriteMode::MODE_STRETCH;
+    engine->renderer.getTextureRepository()
+        .add(FileUtils::fromCwd("hud/loading-white.png"))
+        ->addLink(quad.id);
+    quadReady = true;
+  }
+  // Color channels run 0..128 on the GS, so 128 is full intensity / opaque.
+  auto fill = [&](float x, float y, float w, float h, float r, float g,
+                  float b, float a) {
+    quad.position = Vec2(x, y);
+    quad.size = Vec2(w, h);
+    quad.color = Color(r * 128.0F, g * 128.0F, b * 128.0F, a * 128.0F);
+    engine->renderer.renderer2D.render(quad);
+  };
+  auto frame = [&](float x, float y, float w, float h, float r, float g,
+                   float b) {
+    fill(x, y, w, 2.0F, r, g, b, 1.0F);
+    fill(x, y + h - 2.0F, w, 2.0F, r, g, b, 1.0F);
+    fill(x, y, 2.0F, h, r, g, b, 1.0F);
+    fill(x + w - 2.0F, y, 2.0F, h, r, g, b, 1.0F);
+  };
+  // Draws the text clipped to a width by dropping trailing characters.
+  auto fitText = [&](const char* text, float x, float y, float width,
+                     float size) {
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%s", text ? text : "");
+    int len = (int)strlen(buf);
+    while (len > 1 && fontTextWidth(0, buf, size) > width) buf[--len] = '\0';
+    drawInventoryLine(engine, buf, x, y, size);
+  };
+  auto itemColor = [](const Item& it, float* c) {
+    switch (it.type) {
+      case ItemType::Weapon: c[0] = 0.75F; c[1] = 0.25F; c[2] = 0.25F; break;
+      case ItemType::Ammo:
+      case ItemType::Magazine: c[0] = 0.75F; c[1] = 0.55F; c[2] = 0.2F; break;
+      case ItemType::Food:
+      case ItemType::Drink: c[0] = 0.25F; c[1] = 0.6F; c[2] = 0.7F; break;
+      case ItemType::Medical: c[0] = 0.3F; c[1] = 0.7F; c[2] = 0.35F; break;
+      default: c[0] = 0.4F; c[1] = 0.45F; c[2] = 0.75F; break;
     }
-    drawInventoryLine(engine, line, left, top + lineHeight * (i + 1),
-                      fontSize);
+  };
+  auto drawStack = [&](const Item& it, float x, float y, float w, float h,
+                       bool selected) {
+    float c[3];
+    itemColor(it, c);
+    fill(x, y, w, h, c[0], c[1], c[2], 0.9F);
+    if (selected)
+      frame(x, y, w, h, 1.0F, 1.0F, 0.2F);
+    else
+      frame(x, y, w, h, 0.1F, 0.1F, 0.1F);
+    fitText(it.name, x + 2.0F, y + 3.0F, w - 4.0F, smallFont);
+    char amount[16];
+    if (it.id == kItemPistolMagazine)
+      snprintf(amount, sizeof(amount), "%d/%d", it.ammoCount, it.ammoCapacity);
+    else if (it.quantity > 1)
+      snprintf(amount, sizeof(amount), "x%d", it.quantity);
+    else
+      amount[0] = '\0';
+    if (amount[0] != '\0')
+      fitText(amount, x + 2.0F, y + h - 13.0F, w - 4.0F, smallFont);
+  };
+
+  fill(0.0F, 0.0F, screen.getWidth(), screen.getHeight(), 0.0F, 0.0F, 0.0F,
+       0.7F);
+  drawInventoryLine(engine, "INVENTARIO", left, top, 16.0F);
+
+  // Equipment panel: two columns of slot boxes.
+  static const char* const kSlotNames[kEquipSlotCount] = {
+      "CABECA", "TORSO",  "COLETE",  "PERNAS", "PES",    "MAOS",
+      "MOCHILA", "COLDRE", "COSTAS1", "COSTAS2", "SECUND", "MELEE"};
+  const float slotW = 104.0F;
+  const float slotH = 36.0F;
+  const float slotsTop = top + 26.0F;
+  for (int s = 0; s < kEquipSlotCount; ++s) {
+    const float x = left + (s % 2) * (slotW + 4.0F);
+    const float y = slotsTop + (s / 2) * (slotH + 4.0F);
+    const Item* it = inventory.equipped(static_cast<EquipSlot>(s));
+    const bool filled = it && it->id != 0;
+    const bool selected = selection == kInventoryRecordCount + s &&
+                          !(survivalCrate() && survivalCrateFocused());
+    fill(x, y, slotW, slotH, 0.12F, 0.12F, 0.14F, 0.9F);
+    if (filled) {
+      drawStack(*it, x + 3.0F, y + 11.0F, slotW - 6.0F, slotH - 14.0F,
+                selected);
+    }
+    if (selected && !filled)
+      frame(x, y, slotW, slotH, 1.0F, 1.0F, 0.2F);
+    else
+      frame(x, y, slotW, slotH, 0.35F, 0.35F, 0.4F);
+    fitText(kSlotNames[s], x + 3.0F, y + 1.0F, slotW - 6.0F, 8.0F);
   }
 
-  const float footerY =
-      top + lineHeight * (survivalInventory().slotCount() + 1);
-  drawInventoryLine(engine, survivalInventoryMessage(), left, footerY,
-                    fontSize);
-  char dropLine[64];
-  snprintf(dropLine, sizeof(dropLine), "QUADRADO: CARREGAR  O: DROPAR x%d",
-           survivalInventoryDropQuantity());
-  drawInventoryLine(engine, dropLine, left, footerY + lineHeight, fontSize);
-  drawInventoryLine(engine, "ESQ/DIR: QTD  X: USAR/EQUIPAR  TRIANGULO: FECHAR",
-                    left, footerY + lineHeight * 2.0F, fontSize);
+  // Cargo grids: pockets always, backpack only while one is worn; an open loot
+  // crate adds its own grid to the right of the pockets.
+  constexpr float kCell = 28.0F;
+  const float gridX = left + 2.0F * (slotW + 4.0F) + 24.0F;
+  float gridsBottom = slotsTop + 6.0F * (slotH + 4.0F);
+  float nextTop = top + 26.0F;
+  const Inventory* crate = survivalCrate();
+  const bool crateFocused = crate && survivalCrateFocused();
+  const int crateSel = survivalCrateSelection();
+  // panel: 0 pockets, 1 backpack, 2 crate. `c` is the grid inside `inv`.
+  auto drawGrid = [&](const Inventory& inv, int c, int panel, float gx0,
+                      float gridTop, const char* label) {
+    const int cols = Inventory::containerWidth(c);
+    const int rows = Inventory::containerHeight(c);
+    const bool isCrate = panel == 2;
+    const bool focus = isCrate ? crateFocused : !crateFocused;
+    const int cursor = isCrate ? crateSel : selection;
+    drawInventoryLine(engine, label, gx0, gridTop - 14.0F, fontSize);
+    fill(gx0, gridTop, cols * kCell, rows * kCell, 0.1F, 0.1F, 0.12F, 0.9F);
+    for (int gx = 0; gx <= cols; ++gx)
+      fill(gx0 + gx * kCell - 1.0F, gridTop, 1.0F, rows * kCell, 0.3F, 0.3F,
+           0.35F, 1.0F);
+    for (int gy = 0; gy <= rows; ++gy)
+      fill(gx0, gridTop + gy * kCell - 1.0F, cols * kCell, 1.0F, 0.3F, 0.3F,
+           0.35F, 1.0F);
+    const bool grabFromHere = grab.active && grab.fromCrate == isCrate;
+    for (int i = 0; i < kInventoryRecordCount; ++i) {
+      const Item* it = inv.slot(i);
+      if (!it || it->id == 0 || it->container != c) continue;
+      if (grabFromHere && i == grab.record) continue;
+      drawStack(*it, gx0 + it->gridX * kCell + 1.0F,
+                gridTop + it->gridY * kCell + 1.0F,
+                it->footprintW() * kCell - 2.0F,
+                it->footprintH() * kCell - 2.0F,
+                i == cursor && focus && !grab.active);
+    }
+    if (!grab.active && survivalCursorPanel() == panel)
+      frame(gx0 + survivalCursorX() * kCell, gridTop + survivalCursorY() * kCell,
+            kCell, kCell, 1.0F, 1.0F, 0.2F);
+    if (grab.active && grab.container == panel) {
+      const Inventory& src = (grab.fromCrate && crate) ? *crate : inventory;
+      const Item* it = src.slot(grab.record);
+      if (it && it->id != 0) {
+        const int gw = grab.rotated ? it->height : it->width;
+        const int gh = grab.rotated ? it->width : it->height;
+        const bool same = &src == &inv;
+        const bool ok =
+            inv.canPlace(c, grab.x, grab.y, gw, gh, same ? grab.record : -1);
+        const float gx = gx0 + grab.x * kCell + 1.0F;
+        const float gy = gridTop + grab.y * kCell + 1.0F;
+        fill(gx, gy, gw * kCell - 2.0F, gh * kCell - 2.0F, ok ? 0.2F : 0.8F,
+             ok ? 0.8F : 0.2F, 0.2F, 0.55F);
+        frame(gx, gy, gw * kCell - 2.0F, gh * kCell - 2.0F, 1.0F, 1.0F, 0.2F);
+        fitText(it->name, gx + 2.0F, gy + 3.0F, gw * kCell - 6.0F, smallFont);
+      }
+    }
+  };
+  for (int c = 0; c < 2; ++c) {
+    if (!inventory.containerActive(c)) continue;
+    const int rows = Inventory::containerHeight(c);
+    drawGrid(inventory, c, c, gridX, nextTop, c == 0 ? "BOLSOS" : "MOCHILA");
+    if (nextTop + rows * kCell > gridsBottom)
+      gridsBottom = nextTop + rows * kCell;
+    if (c == 0 && crate)
+      drawGrid(*crate, 0, 2, gridX + Inventory::containerWidth(0) * kCell + 24.0F,
+               nextTop, "CAIXA");
+    nextTop += rows * kCell + 20.0F;
+  }
+
+  const float footerY = gridsBottom + 10.0F;
+  const Item* current = crateFocused ? crate->slot(crateSel)
+                                     : inventory.slot(selection);
+  if (current && current->id != 0) {
+    char info[64];
+    if (current->id == kItemPistol && survivalWeapon().equipped())
+      snprintf(info, sizeof(info), "%s (NA MAO)", current->name);
+    else
+      snprintf(info, sizeof(info), "%s  %dx%d", current->name,
+               current->footprintW(), current->footprintH());
+    drawInventoryLine(engine, info, left, footerY - lineHeight, fontSize);
+  } else {
+    drawInventoryLine(engine, "SLOT VAZIO", left, footerY - lineHeight,
+                      fontSize);
+  }
+  char capacity[64];
+  snprintf(capacity, sizeof(capacity), "BOLSOS %d/%d  MOCHILA %d/%d",
+           inventory.usedCells(0), inventory.totalCells(0),
+           inventory.usedCells(1), inventory.totalCells(1));
+  drawInventoryLine(engine, capacity, left, footerY, fontSize);
+  char weightLine[48];
+  snprintf(weightLine, sizeof(weightLine), "PESO %.1f/%.0f KG%s",
+           inventory.totalWeight(), kWeightMax,
+           inventory.loadFactor() > 0.0F ? "  PESADO" : "");
+  drawInventoryLine(engine, weightLine, left + 250.0F, footerY, fontSize);
+  drawInventoryLine(engine, survivalInventoryMessage(), left,
+                    footerY + lineHeight, fontSize);
+  if (grab.active) {
+    drawInventoryLine(engine, "MOVER: SETAS MOVEM  R2: GIRAR", left,
+                      footerY + lineHeight * 2.0F, fontSize);
+    drawInventoryLine(engine, "X: COLOCAR  TRIANGULO: CANCELAR", left,
+                      footerY + lineHeight * 3.0F, fontSize);
+    return;
+  }
+  if (crate) {
+    drawInventoryLine(engine, "SETAS: NAVEGAR  X: TRANSFERIR", left,
+                      footerY + lineHeight * 2.0F, fontSize);
+    drawInventoryLine(engine, "L2: MOVER  R2: GIRAR  TRIANGULO: FECHAR", left,
+                      footerY + lineHeight * 3.0F, fontSize);
+    return;
+  }
+  if (survivalInventoryDropMode()) {
+    char dropLine[64];
+    snprintf(dropLine, sizeof(dropLine), "DROPAR QUANTIDADE: %d / %d",
+             survivalInventoryDropQuantity(), current ? current->quantity : 1);
+    drawInventoryLine(engine, dropLine, left, footerY + lineHeight * 2.0F,
+                      fontSize);
+    drawInventoryLine(engine, "ESQ/DIR: QTD  O: CONFIRMAR  TRIANGULO: CANCELAR",
+                      left, footerY + lineHeight * 3.0F, fontSize);
+    return;
+  }
+  drawInventoryLine(engine, "SETAS: NAVEGAR  X: USAR/EQUIPAR  O: DROPAR", left,
+                    footerY + lineHeight * 2.0F, fontSize);
+  drawInventoryLine(engine, "QUADRADO: CARREGAR  TRIANGULO: FECHAR", left,
+                    footerY + lineHeight * 3.0F, fontSize);
+  drawInventoryLine(engine, "L2: MOVER  R2: GIRAR", left,
+                    footerY + lineHeight * 4.0F, fontSize);
 }
 
 }  // namespace
@@ -487,6 +673,8 @@ void TerrainGame::loop() {
                                : Vec4(0.0F, 0.0F, 1.0F);
   }
   if (menuOwnsPad) { scriptCtx.usedObject = -1; useTargetIndex = -1; }
+  g_survivalPadOwned = saveMenuActive || gameMenuWasOpen || gameMenuIndex >= 0 ||
+                       dbgHalted;
   // Menus pause scripts - except the frame a menu entry fires a flow event,
   // which must reach the On Menu Event triggers.
   if (!menuActive || scriptCtx.menuEvent >= 0)
